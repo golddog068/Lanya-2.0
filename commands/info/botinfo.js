@@ -94,8 +94,7 @@ module.exports = {
         iconURL: interaction.user.displayAvatarURL({ dynamic: true }),
       })
       .setTimestamp();
-
-
+    
     await interaction.reply({ embeds: [botInfoEmbed], components: [row] });
   },
 };
