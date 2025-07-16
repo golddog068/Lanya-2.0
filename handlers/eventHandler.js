@@ -37,9 +37,9 @@ module.exports = (client) => {
       } else if (file.endsWith('.js')) {
         const event = require(filePath);
         if (event.once) {
-          client.once(event.name, (...args) => event.execute(...args));
+          client.once(event.name, (...args) => event.execute(client, ...args));
         } else {
-          client.on(event.name, (...args) => event.execute(...args));
+          client.on(event.name, (...args) => event.execute(client, ...args));
         }
         count++;
       }
