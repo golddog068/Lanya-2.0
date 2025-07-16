@@ -1,5 +1,6 @@
 const { Events, ActivityType } = require('discord.js');
-const updateStatus = require('Lanya-2.0/events/client/statusRotation');
+updateStatus = require('./statusRotation');
+
 const fs = require('fs');
 const path = require('path');
 
