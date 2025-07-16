@@ -11,15 +11,13 @@ const STARTUP_IMAGES = {
   startup: 'https://ik.imagekit.io/pxhnsvi5v/startup.png?updatedAt=1752697731206',
   earlyAccess: 'https://ik.imagekit.io/pxhnsvi5v/early%20access.png?updatedAt=1752697731401',
   released: 'https://ik.imagekit.io/pxhnsvi5v/session%20released.png?updatedAt=1752697730832',
-  reinvites: 'https://ik.imagekit.io/pxhnsvi5v/reinvites.png?updatedAt=1752697730827',
 };
 
-// IDs
 const SERVER_IDS = {
   'server-1': '1068716889901125742',
   'server-2': '1389561970210111538',
 };
-const EARLY_ACCESS_ROLE_ID = '1068934061189496912';
+
 const HOST_ROLE_ID = '1068934061189496912';
 
 module.exports = {
@@ -54,7 +52,6 @@ module.exports = {
     try {
       await interaction.deferReply({ ephemeral: true });
 
-      // Permission check
       if (!interaction.member.roles.cache.has(HOST_ROLE_ID)) {
         return interaction.editReply({
           content: '❌ You are not authorized to use this command.',
@@ -65,10 +62,9 @@ module.exports = {
       const targetChannelId = SERVER_IDS[serverChoice];
       const reactionGoal = interaction.options.getInteger('reactions');
       const earlyAccessLink = interaction.options.getString('earlyaccesslink');
-
       const channel = await interaction.client.channels.fetch(targetChannelId);
 
-      // Startup Embed (no @everyone in embed description!)
+      // Send startup message with ping outside embed
       const startupEmbed = new EmbedBuilder()
         .setTitle('📢 Session Startup')
         .setDescription(`**${reactionGoal}+ Reactions Needed**\nReact with ✅ to start session.`)
@@ -76,7 +72,6 @@ module.exports = {
         .setImage(STARTUP_IMAGES.startup)
         .setTimestamp();
 
-      // Send message with @everyone ping outside embed + allow mentions
       const startupMessage = await channel.send({
         content: '@everyone',
         embeds: [startupEmbed],
@@ -89,16 +84,18 @@ module.exports = {
         content: `✅ Startup prompt sent in <#${targetChannelId}>. Awaiting ${reactionGoal} ✅ reactions.`,
       });
 
-      // Reaction collector
+      // === Reaction Collector ===
       const filter = (reaction, user) => reaction.emoji.name === '✅' && !user.bot;
       const collector = startupMessage.createReactionCollector({ filter, time: 60 * 60 * 1000 });
 
       collector.on('collect', async (reaction) => {
-        const count = reaction.count - 1; // exclude bot's own reaction
+        const count = reaction.count - 1;
+        console.log(`✅ Reaction collected. Count: ${count}/${reactionGoal}`);
+
         if (count >= reactionGoal) {
           collector.stop();
 
-          // Early Access Embed (no @everyone in embed description)
+          // Early Access Embed
           const earlyEmbed = new EmbedBuilder()
             .setTitle('🚪 Early Access Open')
             .setDescription('Session is being setup.\nStaff, Boosters, and Public Services may now join.')
@@ -120,11 +117,11 @@ module.exports = {
             allowedMentions: { parse: ['everyone'] },
           });
 
-          await interaction.user.send(`✅ Startup prompt reached ${reactionGoal} reactions. Early access link is now public.`);
+          await interaction.user.send(`✅ Startup reached ${reactionGoal} reactions. Early access is live.`);
 
-          // Ask user to confirm session release
+          // DM: Release Button
           const releasePrompt = await interaction.user.send({
-            content: '🟢 Click the button below when you are ready to **release the session**.',
+            content: '🟢 Click the button below when you’re ready to **release the session**.',
             components: [
               new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
@@ -145,7 +142,7 @@ module.exports = {
 
               const releaseEmbed = new EmbedBuilder()
                 .setTitle('✅ Session Released')
-                .setDescription('Welcome to today’s RP session. Please follow the information below.')
+                .setDescription('Welcome to today’s RP session. Please follow the info below.')
                 .addFields(
                   { name: 'Speed Limit', value: '90 MPH', inline: true },
                   { name: 'FRP Limit', value: 'Yes', inline: true },
@@ -188,6 +185,7 @@ module.exports = {
           });
         }
       });
+
     } catch (error) {
       console.error('❌ Error in /startup:', error);
       if (interaction.deferred || interaction.replied) {
