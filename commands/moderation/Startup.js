@@ -1,13 +1,4 @@
-const {
-  SlashCommandBuilder,
-  EmbedBuilder,
-  PermissionFlagsBits,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ChannelType,
-  RoleSelectMenuBuilder,
-} = require('discord.js');
+const {SlashCommandBuilder,  EmbedBuilder, PermissionFlagsBits,  ActionRowBuilder,  ButtonBuilder,  ButtonStyle, ChannelType, RoleSelectMenuBuilder,} = require('discord.js');
 
 const STARTUP_IMAGES = {
   startup: 'https://ik.imagekit.io/pxhnsvi5v/startup.png?updatedAt=1752697731206',
