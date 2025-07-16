@@ -1,5 +1,5 @@
 const { Events, ActivityType } = require('discord.js');
-const updateStatus = require('../../functions/statusRotation');
+const updateStatus = require('../../client/statusRotation');
 const fs = require('fs');
 const path = require('path');
 
