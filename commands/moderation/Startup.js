@@ -11,7 +11,6 @@ const STARTUP_IMAGES = {
   startup: 'https://ik.imagekit.io/pxhnsvi5v/startup.png?updatedAt=1752697731206',
   earlyAccess: 'https://ik.imagekit.io/pxhnsvi5v/early%20access.png?updatedAt=1752697731401',
   released: 'https://ik.imagekit.io/pxhnsvi5v/session%20released.png?updatedAt=1752697730832',
-  reinvites: 'https://ik.imagekit.io/pxhnsvi5v/reinvites.png?updatedAt=1752697730827',
 };
 
 const SERVER_IDS = {
@@ -50,144 +49,157 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {
-    // Permissions check
-    if (!interaction.member.roles.cache.has(HOST_ROLE_ID)) {
-      return interaction.reply({
-        content: '❌ You are not authorized to use this command.',
-        ephemeral: true,
-      });
-    }
-
-    const serverChoice = interaction.options.getString('server');
-    const targetChannelId = SERVER_IDS[serverChoice];
-    const reactionGoal = interaction.options.getInteger('reactions');
-    const earlyAccessLink = interaction.options.getString('earlyaccesslink');
-
-    const channel = await interaction.client.channels.fetch(targetChannelId);
-    if (!channel) {
-      return interaction.reply({
-        content: '❌ Failed to find the target channel.',
-        ephemeral: true,
-      });
-    }
-
-    // Build and send the startup embed
-    const startupEmbed = new EmbedBuilder()
-      .setTitle('📢 Session Startup')
-      .setDescription(`**${reactionGoal}+ Reactions Needed**\nReact with ✅ to start session.`)
-      .setColor(0x5865f2)
-      .setImage(STARTUP_IMAGES.startup)
-      .setTimestamp();
-
-    const startupMessage = await channel.send({
-      content: '@everyone',
-      embeds: [startupEmbed],
-      allowedMentions: { parse: ['everyone'] },
-    });
-
-    await startupMessage.react('✅');
-
-    await interaction.reply({
-      content: `✅ Startup prompt sent in <#${targetChannelId}>. Waiting for ${reactionGoal} ✅ reactions.`,
-      ephemeral: true,
-    });
-
-    // Reaction Collector
-    const filter = (reaction, user) => reaction.emoji.name === '✅' && !user.bot;
-    const collector = startupMessage.createReactionCollector({ filter, time: 60 * 60 * 1000 });
-
-    collector.on('collect', async (reaction) => {
-      const count = reaction.count - 1; // subtract bot's own reaction
-      if (count >= reactionGoal) {
-        collector.stop();
-
-        // Early Access Embed
-        const earlyEmbed = new EmbedBuilder()
-          .setTitle('🚪 Early Access Open')
-          .setDescription('Session is being setup.\nStaff, Boosters, and Public Services may now join.')
-          .setColor(0xffb347)
-          .setImage(STARTUP_IMAGES.earlyAccess)
-          .setTimestamp();
-
-        const earlyAccessButton = new ButtonBuilder()
-          .setLabel('Join Early Access')
-          .setStyle(ButtonStyle.Link)
-          .setURL(earlyAccessLink);
-
-        const earlyRow = new ActionRowBuilder().addComponents(earlyAccessButton);
-
-        await channel.send({
-          content: '@everyone',
-          embeds: [earlyEmbed],
-          components: [earlyRow],
-          allowedMentions: { parse: ['everyone'] },
-        });
-
-        // DM prompt to host for releasing session
-        const releasePrompt = await interaction.user.send({
-          content: '🟢 Click the button below when you are ready to **release the session**.',
-          components: [
-            new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId('release_session')
-                .setLabel('Release Session')
-                .setStyle(ButtonStyle.Success)
-            ),
-          ],
-        });
-
-        const dmCollector = releasePrompt.createMessageComponentCollector({
-          time: 30 * 60 * 1000,
-        });
-
-        dmCollector.on('collect', async (btnInteraction) => {
-          if (btnInteraction.customId === 'release_session') {
-            await btnInteraction.deferUpdate();
-
-            const releaseEmbed = new EmbedBuilder()
-              .setTitle('✅ Session Released')
-              .setDescription('Welcome to today’s RP session. Please follow the information below.')
-              .addFields(
-                { name: 'Speed Limit', value: '90 MPH', inline: true },
-                { name: 'FRP Limit', value: 'Yes', inline: true },
-                { name: 'PT', value: 'Off', inline: true },
-                { name: 'RP Type', value: 'Freeroam / Civ Priority', inline: true },
-                { name: 'House Claiming', value: 'Enabled', inline: true },
-                { name: 'Co-Host', value: 'N/A', inline: true }
-              )
-              .setImage(STARTUP_IMAGES.released)
-              .setColor(0x57f287)
-              .setTimestamp();
-
-            const joinButton = new ButtonBuilder()
-              .setCustomId('get_session_link')
-              .setLabel('Join Session')
-              .setStyle(ButtonStyle.Primary);
-
-            const joinRow = new ActionRowBuilder().addComponents(joinButton);
-
-            const releasedMessage = await channel.send({
-              content: '@everyone',
-              embeds: [releaseEmbed],
-              components: [joinRow],
-              allowedMentions: { parse: ['everyone'] },
-            });
-
-            const joinCollector = releasedMessage.createMessageComponentCollector({
-              time: 60 * 60 * 1000,
-            });
-
-            joinCollector.on('collect', async (btn) => {
-              if (btn.customId === 'get_session_link') {
-                await btn.reply({
-                  content: `🔗 Session Link: ${earlyAccessLink}`,
-                  ephemeral: true,
-                });
-              }
-            });
-          }
+    try {
+      // Permission check
+      if (!interaction.member.roles.cache.has(HOST_ROLE_ID)) {
+        return await interaction.reply({
+          content: '❌ You are not authorized to use this command.',
+          ephemeral: true,
         });
       }
-    });
+
+      const serverChoice = interaction.options.getString('server');
+      const targetChannelId = SERVER_IDS[serverChoice];
+      const reactionGoal = interaction.options.getInteger('reactions');
+      const earlyAccessLink = interaction.options.getString('earlyaccesslink');
+
+      const channel = await interaction.client.channels.fetch(targetChannelId);
+      if (!channel) {
+        return await interaction.reply({
+          content: '❌ Target channel not found.',
+          ephemeral: true,
+        });
+      }
+
+      // Startup embed
+      const startupEmbed = new EmbedBuilder()
+        .setTitle('📢 Session Startup')
+        .setDescription(`**${reactionGoal}+ Reactions Needed**\nReact with ✅ to start session.`)
+        .setColor(0x5865f2)
+        .setImage(STARTUP_IMAGES.startup)
+        .setTimestamp();
+
+      const startupMessage = await channel.send({
+        content: '@everyone',
+        embeds: [startupEmbed],
+        allowedMentions: { parse: ['everyone'] },
+      });
+
+      await startupMessage.react('✅');
+
+      // Send success reply to command user
+      await interaction.reply({
+        content: `✅ Startup prompt sent in <#${targetChannelId}>. Waiting for ${reactionGoal} ✅ reactions.`,
+        ephemeral: true,
+      });
+
+      // Reaction collector
+      const filter = (reaction, user) => reaction.emoji.name === '✅' && !user.bot;
+      const collector = startupMessage.createReactionCollector({ filter, time: 60 * 60 * 1000 });
+
+      collector.on('collect', async (reaction) => {
+        const count = reaction.count - 1; // exclude bot's reaction
+        if (count >= reactionGoal) {
+          collector.stop();
+
+          // Early access embed
+          const earlyEmbed = new EmbedBuilder()
+            .setTitle('🚪 Early Access Open')
+            .setDescription('Session is being setup.\nStaff, Boosters, and Public Services may now join.')
+            .setColor(0xffb347)
+            .setImage(STARTUP_IMAGES.earlyAccess)
+            .setTimestamp();
+
+          const earlyAccessButton = new ButtonBuilder()
+            .setLabel('Join Early Access')
+            .setStyle(ButtonStyle.Link)
+            .setURL(earlyAccessLink);
+
+          const earlyRow = new ActionRowBuilder().addComponents(earlyAccessButton);
+
+          await channel.send({
+            content: '@everyone',
+            embeds: [earlyEmbed],
+            components: [earlyRow],
+            allowedMentions: { parse: ['everyone'] },
+          });
+
+          await interaction.user.send(`✅ Startup prompt reached ${reactionGoal} reactions. Early access is open.`);
+
+          // Ask host to release session
+          const releasePrompt = await interaction.user.send({
+            content: '🟢 Click the button below when you are ready to **release the session**.',
+            components: [
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setCustomId('release_session')
+                  .setLabel('Release Session')
+                  .setStyle(ButtonStyle.Success)
+              ),
+            ],
+          });
+
+          const dmCollector = releasePrompt.createMessageComponentCollector({
+            time: 30 * 60 * 1000,
+          });
+
+          dmCollector.on('collect', async (btnInteraction) => {
+            if (btnInteraction.customId === 'release_session') {
+              await btnInteraction.deferUpdate();
+
+              const releaseEmbed = new EmbedBuilder()
+                .setTitle('✅ Session Released')
+                .setDescription('Welcome to today’s RP session. Please follow the information below.')
+                .addFields(
+                  { name: 'Speed Limit', value: '90 MPH', inline: true },
+                  { name: 'FRP Limit', value: 'Yes', inline: true },
+                  { name: 'PT', value: 'Off', inline: true },
+                  { name: 'RP Type', value: 'Freeroam / Civ Priority', inline: true },
+                  { name: 'House Claiming', value: 'Enabled', inline: true },
+                  { name: 'Co-Host', value: 'N/A', inline: true }
+                )
+                .setImage(STARTUP_IMAGES.released)
+                .setColor(0x57f287)
+                .setTimestamp();
+
+              const joinButton = new ButtonBuilder()
+                .setCustomId('get_session_link')
+                .setLabel('Join Session')
+                .setStyle(ButtonStyle.Primary);
+
+              const joinRow = new ActionRowBuilder().addComponents(joinButton);
+
+              const releasedMessage = await channel.send({
+                content: '@everyone',
+                embeds: [releaseEmbed],
+                components: [joinRow],
+                allowedMentions: { parse: ['everyone'] },
+              });
+
+              const joinCollector = releasedMessage.createMessageComponentCollector({
+                time: 60 * 60 * 1000,
+              });
+
+              joinCollector.on('collect', async (btn) => {
+                if (btn.customId === 'get_session_link') {
+                  await btn.reply({
+                    content: `🔗 Session Link: ${earlyAccessLink}`,
+                    ephemeral: true,
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error in /startup:', error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ An unexpected error occurred.',
+          ephemeral: true,
+        });
+      }
+    }
   },
 };
