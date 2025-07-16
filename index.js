@@ -10,8 +10,9 @@ const app = express();
 app.get('/', (req, res) => {
   res.send('Everything is up!');
 });
-app.listen(10000, () => {
-  console.log('✅ Express server running on http://localhost:10000');
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`Express server running on http://localhost:${PORT}`);
 });
 
 // === Deploy slash commands on start ===
