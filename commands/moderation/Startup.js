@@ -25,33 +25,25 @@ module.exports = {
     .setName('startup')
     .setDescription('Initiate a session startup.')
     .addStringOption(option =>
-      option
-        .setName('server')
-        .setDescription('Choose which server to start the session in.')
+      option.setName('server')
+        .setDescription('Choose the server to start session in.')
         .setRequired(true)
         .addChoices(
           { name: 'Server 1', value: 'server-1' },
           { name: 'Server 2', value: 'server-2' }
         )
     )
-    .addIntegerOption(option =>
-      option
-        .setName('reactions')
-        .setDescription('Number of ✅ reactions required to start session.')
-        .setRequired(true)
-    )
     .addStringOption(option =>
-      option
-        .setName('earlyaccesslink')
-        .setDescription('Link to join for early access.')
+      option.setName('earlyaccesslink')
+        .setDescription('Link for early access.')
         .setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {
     try {
-      // Permission check
-      if (!interaction.member.roles.cache.has(HOST_ROLE_ID)) {
+      const member = interaction.member;
+      if (!member.roles.cache.has(HOST_ROLE_ID)) {
         return await interaction.reply({
           content: '❌ You are not authorized to use this command.',
           ephemeral: true,
@@ -60,52 +52,52 @@ module.exports = {
 
       const serverChoice = interaction.options.getString('server');
       const targetChannelId = SERVER_IDS[serverChoice];
-      const reactionGoal = interaction.options.getInteger('reactions');
       const earlyAccessLink = interaction.options.getString('earlyaccesslink');
 
       const channel = await interaction.client.channels.fetch(targetChannelId);
-      if (!channel) {
-        return await interaction.reply({
-          content: '❌ Target channel not found.',
-          ephemeral: true,
-        });
-      }
 
-      // Startup embed
-      const startupEmbed = new EmbedBuilder()
-        .setTitle('📢 Session Startup')
-        .setDescription(`**${reactionGoal}+ Reactions Needed**\nReact with ✅ to start session.`)
-        .setColor(0x5865f2)
-        .setImage(STARTUP_IMAGES.startup)
-        .setTimestamp();
-
-      const startupMessage = await channel.send({
-        content: '@everyone',
-        embeds: [startupEmbed],
-        allowedMentions: { parse: ['everyone'] },
-      });
-
-      await startupMessage.react('✅');
-
-      // Send success reply to command user
       await interaction.reply({
-        content: `✅ Startup prompt sent in <#${targetChannelId}>. Waiting for ${reactionGoal} ✅ reactions.`,
+        content: '📬 Check your DMs to configure session startup.',
         ephemeral: true,
       });
 
-      // Reaction collector
-      const filter = (reaction, user) => reaction.emoji.name === '✅' && !user.bot;
-      const collector = startupMessage.createReactionCollector({ filter, time: 60 * 60 * 1000 });
+      // Send config prompt in DM
+      const configPrompt = await interaction.user.send({
+        content: `🛠️ Click the button below to confirm session startup in <#${targetChannelId}>.`,
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId('confirm_startup')
+              .setLabel('✅ Confirm Startup')
+              .setStyle(ButtonStyle.Success)
+          )
+        ]
+      });
 
-      collector.on('collect', async (reaction) => {
-        const count = reaction.count - 1; // exclude bot's reaction
-        if (count >= reactionGoal) {
-          collector.stop();
+      const dmCollector = configPrompt.createMessageComponentCollector({ time: 5 * 60 * 1000, max: 1 });
 
-          // Early access embed
+      dmCollector.on('collect', async (btn) => {
+        if (btn.customId === 'confirm_startup') {
+          await btn.deferUpdate();
+
+          // STEP 1: Send Startup Embed
+          const startupEmbed = new EmbedBuilder()
+            .setTitle('📢 Session Startup')
+            .setDescription('Setting up session...')
+            .setColor(0x5865f2)
+            .setImage(STARTUP_IMAGES.startup)
+            .setTimestamp();
+
+          await channel.send({
+            content: '@everyone',
+            embeds: [startupEmbed],
+            allowedMentions: { parse: ['everyone'] },
+          });
+
+          // STEP 2: Send Early Access Embed
           const earlyEmbed = new EmbedBuilder()
             .setTitle('🚪 Early Access Open')
-            .setDescription('Session is being setup.\nStaff, Boosters, and Public Services may now join.')
+            .setDescription('Staff, Boosters, and Public Services may now join.')
             .setColor(0xffb347)
             .setImage(STARTUP_IMAGES.earlyAccess)
             .setTimestamp();
@@ -124,32 +116,28 @@ module.exports = {
             allowedMentions: { parse: ['everyone'] },
           });
 
-          await interaction.user.send(`✅ Startup prompt reached ${reactionGoal} reactions. Early access is open.`);
-
-          // Ask host to release session
+          // STEP 3: Ask to release session
           const releasePrompt = await interaction.user.send({
-            content: '🟢 Click the button below when you are ready to **release the session**.',
+            content: '🟢 Click below when you’re ready to release the session.',
             components: [
               new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                   .setCustomId('release_session')
                   .setLabel('Release Session')
-                  .setStyle(ButtonStyle.Success)
-              ),
-            ],
+                  .setStyle(ButtonStyle.Primary)
+              )
+            ]
           });
 
-          const dmCollector = releasePrompt.createMessageComponentCollector({
-            time: 30 * 60 * 1000,
-          });
+          const releaseCollector = releasePrompt.createMessageComponentCollector({ time: 30 * 60 * 1000 });
 
-          dmCollector.on('collect', async (btnInteraction) => {
-            if (btnInteraction.customId === 'release_session') {
-              await btnInteraction.deferUpdate();
+          releaseCollector.on('collect', async (releaseBtn) => {
+            if (releaseBtn.customId === 'release_session') {
+              await releaseBtn.deferUpdate();
 
               const releaseEmbed = new EmbedBuilder()
                 .setTitle('✅ Session Released')
-                .setDescription('Welcome to today’s RP session. Please follow the information below.')
+                .setDescription('Welcome to today’s RP session. Please follow the details below.')
                 .addFields(
                   { name: 'Speed Limit', value: '90 MPH', inline: true },
                   { name: 'FRP Limit', value: 'Yes', inline: true },
@@ -176,13 +164,11 @@ module.exports = {
                 allowedMentions: { parse: ['everyone'] },
               });
 
-              const joinCollector = releasedMessage.createMessageComponentCollector({
-                time: 60 * 60 * 1000,
-              });
+              const joinCollector = releasedMessage.createMessageComponentCollector({ time: 60 * 60 * 1000 });
 
-              joinCollector.on('collect', async (btn) => {
-                if (btn.customId === 'get_session_link') {
-                  await btn.reply({
+              joinCollector.on('collect', async (joinBtn) => {
+                if (joinBtn.customId === 'get_session_link') {
+                  await joinBtn.reply({
                     content: `🔗 Session Link: ${earlyAccessLink}`,
                     ephemeral: true,
                   });
@@ -192,11 +178,12 @@ module.exports = {
           });
         }
       });
+
     } catch (error) {
       console.error('❌ Error in /startup:', error);
-      if (!interaction.replied && !interaction.deferred) {
+      if (!interaction.replied) {
         await interaction.reply({
-          content: '❌ An unexpected error occurred.',
+          content: '❌ Something went wrong while running the command.',
           ephemeral: true,
         });
       }
