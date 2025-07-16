@@ -47,7 +47,7 @@ module.exports = {
 
       // Authorization check
       if (!interaction.member.roles.cache.has(HOST_ROLE_ID)) {
-        return interaction.editReply({ content: '❌ You're not authorized.' });
+        return interaction.editReply({ content: "❌ You're not authorized." });
       }
 
       const serverChoice = interaction.options.getString('server');
