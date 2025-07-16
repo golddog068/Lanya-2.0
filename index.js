@@ -1,8 +1,23 @@
 require('dotenv').config();
+const express = require('express');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
+// ----- Express server for Render -----
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('Bot is running!');
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Express server listening on port ${PORT}`);
+});
+// -------------------------------------
+
+// ----- Discord Bot Setup -----
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -24,12 +39,12 @@ for (const folder of commandFolders) {
 
   for (const file of commandFiles) {
     const command = require(path.join(commandsPath, folder, file));
-    client.commands.set(command.name, command);
+    client.commands.set(command.name || command.data.name, command);
   }
 }
 
 client.once('ready', () => {
-  console.log(`Logged in as ${client.user.tag}`);
+  console.log(`🤖 Logged in as ${client.user.tag}`);
 });
 
 client.on('interactionCreate', async (interaction) => {
@@ -44,7 +59,7 @@ client.on('interactionCreate', async (interaction) => {
   } catch (error) {
     console.error(error);
     await interaction.reply({
-      content: 'There was an error executing that command!',
+      content: 'There was an error while executing this command!',
       ephemeral: true,
     });
   }
