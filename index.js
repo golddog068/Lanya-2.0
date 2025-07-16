@@ -15,7 +15,7 @@ app.listen(10000, () => {
 });
 
 // === Deploy slash commands on start ===
-const deployCommands = require('./utils/deployCommands'); // make sure path is correct
+const deployCommands = require('./handlers/deployCommands'); // make sure path is correct
 deployCommands(); // this runs when bot starts
 
 // === Initialize Discord client ===
