@@ -23,7 +23,7 @@ const HOST_ROLE_ID = '1068934061189496912';
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('startup')
-    .setDescription('Initiate a session startup with setup params.')
+    .setDescription('Initiate a session startup with setup parameters.')
     .addStringOption(option =>
       option.setName('server')
         .setDescription('Choose the server to start session in.')
@@ -42,37 +42,39 @@ module.exports = {
 
   async execute(interaction) {
     try {
+      // 1. Defer reply quickly so we avoid timeouts
+      await interaction.deferReply({ ephemeral: true });
+
       // Authorization check
       if (!interaction.member.roles.cache.has(HOST_ROLE_ID)) {
-        return interaction.reply({ content: '❌ You are not authorized.', ephemeral: true });
+        return interaction.editReply({ content: '❌ You're not authorized.' });
       }
 
       const serverChoice = interaction.options.getString('server');
       const channelId = SERVER_IDS[serverChoice];
       const earlyLink = interaction.options.getString('earlyaccesslink');
       const channel = await interaction.client.channels.fetch(channelId);
-
       if (!channel) {
-        return interaction.reply({ content: '❌ Channel not found.', ephemeral: true });
+        return interaction.editReply({ content: '❌ Channel not found.' });
       }
 
-      await interaction.reply({ content: '📬 Check your DMs to finish setup.', ephemeral: true });
+      // Confirm we'll DM the host
+      await interaction.editReply({ content: '📬 Check your DMs to complete setup.' });
 
-      // Step 1: Ask host in DM for reaction goal
+      // In DMs: ask for reaction goal
       const dmChannel = await interaction.user.createDM();
-      await dmChannel.send('How many ✅ reactions should be required to start the session? (Enter a number)');
+      await dmChannel.send('How many ✅ reactions should be needed to start the session? (Enter a number)');
 
       const dmFilter = msg => msg.author.id === interaction.user.id;
       const dmCollected = await dmChannel.awaitMessages({ filter: dmFilter, max: 1, time: 60000 });
       const reactionGoal = parseInt(dmCollected.first()?.content, 10);
-
       if (!reactionGoal || reactionGoal < 1) {
-        return dmChannel.send('❌ Invalid number entered. Setup canceled.');
+        return dmChannel.send('❌ Invalid number entered. Setup cancelled.');
       }
 
-      // Step 2: Confirm startup via button
+      // Confirm startup with a button
       const confirmPrompt = await dmChannel.send({
-        content: `Press ✅ 'Confirm Startup' to send startup message in <#${channelId}> with **${reactionGoal}** reactions required.`,
+        content: `Press ✅ to start the session in <#${channelId}> with **${reactionGoal}** reactions needed.`,
         components: [
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -87,7 +89,7 @@ module.exports = {
       collector.on('collect', async btn => {
         await btn.deferUpdate();
 
-        // STEP 3: Send Startup embed
+        // A) Send Startup embed
         const startupEmbed = new EmbedBuilder()
           .setTitle('📢 Session Startup')
           .setDescription(`**${reactionGoal}+ Reactions Needed**\nReact with ✅ to start session.`)
@@ -102,7 +104,7 @@ module.exports = {
         });
         await startupMsg.react('✅');
 
-        // STEP 4: Send Early Access embed + button
+        // B) Send Early Access embed & button
         const earlyEmbed = new EmbedBuilder()
           .setTitle('🚪 Early Access Open')
           .setDescription('Staff, Boosters, and Public Services may now join.')
@@ -110,7 +112,8 @@ module.exports = {
           .setImage(STARTUP_IMAGES.earlyAccess)
           .setTimestamp();
 
-        const earlyBtn = new ButtonBuilder().setLabel('Join Early Access')
+        const earlyBtn = new ButtonBuilder()
+          .setLabel('Join Early Access')
           .setStyle(ButtonStyle.Link)
           .setURL(earlyLink);
 
@@ -121,9 +124,9 @@ module.exports = {
           allowedMentions: { parse: ['everyone'] },
         });
 
-        // STEP 5: Ask host to release session via button
+        // C) Ask host to release session
         const releasePrompt = await dmChannel.send({
-          content: '🟢 When you’re ready to release the session, press the button below.',
+          content: '🟢 Click below when ready to release session.',
           components: [
             new ActionRowBuilder().addComponents(
               new ButtonBuilder()
@@ -138,7 +141,7 @@ module.exports = {
         releaseCollector.on('collect', async releaseBtn => {
           await releaseBtn.deferUpdate();
 
-          // STEP 6: Send Session Released embed + Join button
+          // C) Send Session Released embed + join button
           const releaseEmbed = new EmbedBuilder()
             .setTitle('✅ Session Released')
             .addFields(
@@ -176,8 +179,8 @@ module.exports = {
 
     } catch (err) {
       console.error('Error in /startup:', err);
-      if (!interaction.replied) {
-        await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true });
+      if (!interaction.replied && !interaction.deferred) {
+        interaction.reply({ content: '❌ Something went wrong.', ephemeral: true });
       }
     }
   }
