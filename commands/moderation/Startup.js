@@ -1,4 +1,11 @@
-const { SlashCommandBuilder,  EmbedBuilder, PermissionFlagsBits,  ActionRowBuilder,  ButtonBuilder,  ButtonStyle, ChannelType, RoleSelectMenuBuilder, } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  PermissionFlagsBits,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
+} = require('discord.js');
 
 const STARTUP_IMAGES = {
   startup: 'https://ik.imagekit.io/pxhnsvi5v/startup.png?updatedAt=1752697731206',
@@ -7,20 +14,19 @@ const STARTUP_IMAGES = {
   reinvites: 'https://ik.imagekit.io/pxhnsvi5v/reinvites.png?updatedAt=1752697730827',
 };
 
-// IDs
 const SERVER_IDS = {
   'server-1': '1068716889901125742',
   'server-2': '1389561970210111538',
 };
+
 const EARLY_ACCESS_ROLE_ID = '1068934061189496912';
 const HOST_ROLE_ID = '1068934061189496912';
-const REINVITE_ROLE_ID = '1068934061189496912';
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('startup')
     .setDescription('Initiate a session startup.')
-    .addStringOption((option) =>
+    .addStringOption(option =>
       option.setName('server')
         .setDescription('Choose which server to start the session in.')
         .setRequired(true)
@@ -29,12 +35,12 @@ module.exports = {
           { name: 'Server 2', value: 'server-2' }
         )
     )
-    .addIntegerOption((option) =>
+    .addIntegerOption(option =>
       option.setName('reactions')
         .setDescription('Number of ✅ reactions required to start session.')
         .setRequired(true)
     )
-    .addStringOption((option) =>
+    .addStringOption(option =>
       option.setName('earlyaccesslink')
         .setDescription('Link to join for early access.')
         .setRequired(true)
@@ -42,9 +48,11 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {
-    // Permission check
+    await interaction.deferReply({ ephemeral: true });
+
+    // Check role
     if (!interaction.member.roles.cache.has(HOST_ROLE_ID)) {
-      return interaction.reply({ content: '❌ You are not authorized to use this command.', ephemeral: true });
+      return interaction.editReply({ content: '❌ You are not authorized to use this command.' });
     }
 
     const serverChoice = interaction.options.getString('server');
@@ -52,7 +60,8 @@ module.exports = {
     const reactionGoal = interaction.options.getInteger('reactions');
     const earlyAccessLink = interaction.options.getString('earlyaccesslink');
 
-    // Startup Embed
+    const channel = await interaction.client.channels.fetch(targetChannelId);
+
     const startupEmbed = new EmbedBuilder()
       .setTitle('📢 Session Startup')
       .setDescription(`@everyone\n**${reactionGoal}+ Reactions Needed**\nReact with ✅ to start session.`)
@@ -60,22 +69,19 @@ module.exports = {
       .setImage(STARTUP_IMAGES.startup)
       .setTimestamp();
 
-    const channel = await interaction.client.channels.fetch(targetChannelId);
     const startupMessage = await channel.send({ embeds: [startupEmbed] });
-
     await startupMessage.react('✅');
-    await interaction.reply({ content: `Startup prompt sent in <#${targetChannelId}>. Awaiting ${reactionGoal} ✅ reactions.`, ephemeral: true });
 
-    // Reaction collector
+    await interaction.editReply({ content: `✅ Startup prompt sent in <#${targetChannelId}>. Waiting for ${reactionGoal} ✅ reactions.` });
+
     const filter = (reaction, user) => reaction.emoji.name === '✅' && !user.bot;
-    const collector = startupMessage.createReactionCollector({ filter, time: 60 * 60 * 1000 }); // 1 hour
+    const collector = startupMessage.createReactionCollector({ filter, time: 60 * 60 * 1000 });
 
     collector.on('collect', async (reaction) => {
       const count = reaction.count - 1; // exclude bot reaction
       if (count >= reactionGoal) {
         collector.stop();
 
-        // Early Access Embed
         const earlyEmbed = new EmbedBuilder()
           .setTitle('🚪 Early Access Open')
           .setDescription('@everyone\nSession is being setup.\nStaff, Boosters, and Public Services may now join.')
@@ -91,9 +97,8 @@ module.exports = {
         const earlyRow = new ActionRowBuilder().addComponents(earlyAccessButton);
         await channel.send({ embeds: [earlyEmbed], components: [earlyRow] });
 
-        await interaction.user.send(`✅ Startup prompt reached ${reactionGoal} reactions. Early access link is now public.`);
+        await interaction.user.send(`✅ Startup prompt reached ${reactionGoal} reactions. Early access is now open: ${earlyAccessLink}`);
 
-        // Ask user to confirm session release
         const releasePrompt = await interaction.user.send({
           content: '🟢 Click the button below when you are ready to **release the session**.',
           components: [new ActionRowBuilder().addComponents(
@@ -105,14 +110,14 @@ module.exports = {
         });
 
         const dmCollector = releasePrompt.createMessageComponentCollector({ time: 30 * 60 * 1000 });
+
         dmCollector.on('collect', async (btnInteraction) => {
           if (btnInteraction.customId === 'release_session') {
             await btnInteraction.deferUpdate();
 
-            // Prompt for RP Details
             const releaseEmbed = new EmbedBuilder()
               .setTitle('✅ Session Released')
-              .setDescription('@everyone\nWelcome to today’s RP session. Please follow the information below.')
+              .setDescription('@everyone\nWelcome to today’s RP session. Please follow the details below:')
               .addFields(
                 { name: 'Speed Limit', value: '90 MPH', inline: true },
                 { name: 'FRP Limit', value: 'Yes', inline: true },
@@ -133,7 +138,6 @@ module.exports = {
             const joinRow = new ActionRowBuilder().addComponents(joinButton);
             const releasedMessage = await channel.send({ embeds: [releaseEmbed], components: [joinRow] });
 
-            // Handle join button interaction
             const joinCollector = releasedMessage.createMessageComponentCollector({ time: 60 * 60 * 1000 });
             joinCollector.on('collect', async (btn) => {
               if (btn.customId === 'get_session_link') {
