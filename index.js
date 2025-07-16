@@ -1,68 +1,62 @@
 require('dotenv').config();
 const express = require('express');
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { Client, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const chalk = require('chalk');
 
-// ----- Express server for Render -----
+// === Express server to keep Render alive ===
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 app.get('/', (req, res) => {
-  res.send('Bot is running!');
+  res.send('Everything is up!');
+});
+app.listen(10000, () => {
+  console.log('✅ Express server running on http://localhost:10000');
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Express server listening on port ${PORT}`);
-});
-// -------------------------------------
+// === Deploy slash commands on start ===
+const deployCommands = require('./utils/deployCommands'); // make sure path is correct
+deployCommands(); // this runs when bot starts
 
-// ----- Discord Bot Setup -----
+// === Initialize Discord client ===
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
   ],
 });
 
-client.commands = new Collection();
+// === Custom global styles (for console logs) ===
+global.styles = {
+  successColor: chalk.bold.green,
+  warningColor: chalk.bold.yellow,
+  infoColor: chalk.bold.blue,
+  commandColor: chalk.bold.cyan,
+  userColor: chalk.bold.magenta,
+  errorColor: chalk.red,
+  highlightColor: chalk.bold.hex('#FFA500'),
+  accentColor: chalk.bold.hex('#00FF7F'),
+  secondaryColor: chalk.hex('#ADD8E6'),
+  primaryColor: chalk.bold.hex('#FF1493'),
+  dividerColor: chalk.hex('#FFD700'),
+};
 
-// Load commands
-const commandsPath = path.join(__dirname, 'commands');
-const commandFolders = fs.readdirSync(commandsPath);
+// === Load command & event handlers ===
+const handlerFiles = fs
+  .readdirSync(path.join(__dirname, 'handlers'))
+  .filter((file) => file.endsWith('.js'));
 
-for (const folder of commandFolders) {
-  const commandFiles = fs
-    .readdirSync(path.join(commandsPath, folder))
-    .filter((file) => file.endsWith('.js'));
-
-  for (const file of commandFiles) {
-    const command = require(path.join(commandsPath, folder, file));
-    client.commands.set(command.name || command.data.name, command);
+let counter = 0;
+for (const file of handlerFiles) {
+  counter += 1;
+  const handler = require(`./handlers/${file}`);
+  if (typeof handler === 'function') {
+    handler(client);
   }
 }
+console.log(global.styles.successColor(`✅ Loaded ${counter} handlers`));
 
-client.once('ready', () => {
-  console.log(`🤖 Logged in as ${client.user.tag}`);
-});
-
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
-  const command = client.commands.get(interaction.commandName);
-
-  if (!command) return;
-
-  try {
-    await command.execute(interaction, client);
-  } catch (error) {
-    console.error(error);
-    await interaction.reply({
-      content: 'There was an error while executing this command!',
-      ephemeral: true,
-    });
-  }
-});
-
+// === Bot login ===
 client.login(process.env.DISCORD_TOKEN);
