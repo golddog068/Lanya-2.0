@@ -26,6 +26,8 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    // Add this if you use reaction events:
+    // GatewayIntentBits.GuildMessageReactions,
   ],
 });
 
@@ -58,6 +60,26 @@ for (const file of handlerFiles) {
   }
 }
 console.log(global.styles.successColor(`✅ Loaded ${counter} handlers`));
+
+// === Client event listeners for debugging ===
+client.once('ready', () => {
+  console.log(global.styles.successColor(`✅ Logged in as ${client.user.tag}`));
+});
+
+client.on('error', (error) => {
+  console.error(global.styles.errorColor('Client error:'), error);
+});
+
+client.on('warn', (info) => {
+  console.warn(global.styles.warningColor('Client warning:'), info);
+});
+
+process.on('unhandledRejection', (error) => {
+  console.error(global.styles.errorColor('Unhandled promise rejection:'), error);
+});
+
+// === Debug token presence ===
+console.log(process.env.DISCORD_TOKEN ? 'Token loaded ✅' : 'Token missing ❌');
 
 // === Bot login ===
 client.login(process.env.DISCORD_TOKEN);
