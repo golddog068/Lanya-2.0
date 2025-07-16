@@ -68,15 +68,21 @@ module.exports = {
 
       const channel = await interaction.client.channels.fetch(targetChannelId);
 
-      // Startup Embed
+      // Startup Embed (no @everyone in embed description!)
       const startupEmbed = new EmbedBuilder()
         .setTitle('📢 Session Startup')
-        .setDescription(`@everyone\n**${reactionGoal}+ Reactions Needed**\nReact with ✅ to start session.`)
+        .setDescription(`**${reactionGoal}+ Reactions Needed**\nReact with ✅ to start session.`)
         .setColor(0x5865f2)
         .setImage(STARTUP_IMAGES.startup)
         .setTimestamp();
 
-      const startupMessage = await channel.send({ embeds: [startupEmbed] });
+      // Send message with @everyone ping outside embed + allow mentions
+      const startupMessage = await channel.send({
+        content: '@everyone',
+        embeds: [startupEmbed],
+        allowedMentions: { parse: ['everyone'] },
+      });
+
       await startupMessage.react('✅');
 
       await interaction.editReply({
@@ -88,14 +94,14 @@ module.exports = {
       const collector = startupMessage.createReactionCollector({ filter, time: 60 * 60 * 1000 });
 
       collector.on('collect', async (reaction) => {
-        const count = reaction.count - 1; // exclude bot reaction
+        const count = reaction.count - 1; // exclude bot's own reaction
         if (count >= reactionGoal) {
           collector.stop();
 
-          // Early Access Embed
+          // Early Access Embed (no @everyone in embed description)
           const earlyEmbed = new EmbedBuilder()
             .setTitle('🚪 Early Access Open')
-            .setDescription('@everyone\nSession is being setup.\nStaff, Boosters, and Public Services may now join.')
+            .setDescription('Session is being setup.\nStaff, Boosters, and Public Services may now join.')
             .setColor(0xffb347)
             .setImage(STARTUP_IMAGES.earlyAccess)
             .setTimestamp();
@@ -106,7 +112,13 @@ module.exports = {
             .setURL(earlyAccessLink);
 
           const earlyRow = new ActionRowBuilder().addComponents(earlyAccessButton);
-          await channel.send({ embeds: [earlyEmbed], components: [earlyRow] });
+
+          await channel.send({
+            content: '@everyone',
+            embeds: [earlyEmbed],
+            components: [earlyRow],
+            allowedMentions: { parse: ['everyone'] },
+          });
 
           await interaction.user.send(`✅ Startup prompt reached ${reactionGoal} reactions. Early access link is now public.`);
 
@@ -133,7 +145,7 @@ module.exports = {
 
               const releaseEmbed = new EmbedBuilder()
                 .setTitle('✅ Session Released')
-                .setDescription('@everyone\nWelcome to today’s RP session. Please follow the information below.')
+                .setDescription('Welcome to today’s RP session. Please follow the information below.')
                 .addFields(
                   { name: 'Speed Limit', value: '90 MPH', inline: true },
                   { name: 'FRP Limit', value: 'Yes', inline: true },
@@ -152,9 +164,12 @@ module.exports = {
                 .setStyle(ButtonStyle.Primary);
 
               const joinRow = new ActionRowBuilder().addComponents(joinButton);
+
               const releasedMessage = await channel.send({
+                content: '@everyone',
                 embeds: [releaseEmbed],
                 components: [joinRow],
+                allowedMentions: { parse: ['everyone'] },
               });
 
               const joinCollector = releasedMessage.createMessageComponentCollector({
