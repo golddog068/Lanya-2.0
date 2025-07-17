@@ -4,33 +4,33 @@ const fs = require('fs');
 const path = require('path');
 
 const clientId = process.env.DISCORD_CLIENT_ID;
-const guildId = process.env.GUILD_ID; // leave this empty if you're not using it
+const guildId = process.env.GUILD_ID; // optional, used for testing in a specific guild
 const token = process.env.DISCORD_TOKEN;
 
-const commands = [];
+async function deployCommands() {
+  const commands = [];
 
-const commandsPath = path.join(__dirname, '../commands');
-const commandFolders = fs.readdirSync(commandsPath);
+  const commandsPath = path.join(__dirname, '../commands');
+  const commandFolders = fs.readdirSync(commandsPath);
 
-for (const folder of commandFolders) {
-  const folderPath = path.join(commandsPath, folder);
-  const commandFiles = fs.readdirSync(folderPath).filter(file => file.endsWith('.js'));
+  for (const folder of commandFolders) {
+    const folderPath = path.join(commandsPath, folder);
+    const commandFiles = fs.readdirSync(folderPath).filter(file => file.endsWith('.js'));
 
-  for (const file of commandFiles) {
-    const command = require(path.join(folderPath, file));
-    if (command.data) {
-      commands.push(command.data.toJSON());
+    for (const file of commandFiles) {
+      const command = require(path.join(folderPath, file));
+      if (command.data) {
+        commands.push(command.data.toJSON());
+      }
     }
   }
-}
 
-const rest = new REST({ version: '10' }).setToken(token);
+  const rest = new REST({ version: '10' }).setToken(token);
 
-(async () => {
   try {
     console.log('🔁 Deploying application commands...');
 
-    // Set to TRUE if you want to use GUILD commands (for testing, instant deploy)
+    // Set this to true for testing commands instantly on a guild
     const useGuild = false;
 
     if (useGuild && guildId) {
@@ -49,4 +49,6 @@ const rest = new REST({ version: '10' }).setToken(token);
   } catch (error) {
     console.error('❌ Failed to deploy commands:', error);
   }
-})();
+}
+
+module.exports = deployCommands;
