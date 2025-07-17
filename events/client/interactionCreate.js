@@ -1,10 +1,9 @@
-const { Events, MessageFlags, InteractionType } = require('discord.js');
+const { Events, InteractionType } = require('discord.js');
 
 module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     try {
-      // Slash Command
       if (interaction.type === InteractionType.ApplicationCommand) {
         const command = interaction.client.commands.get(interaction.commandName);
         if (!command) {
@@ -13,7 +12,11 @@ module.exports = {
         }
 
         try {
+          // If your commands are async and might take time, defer early:
+          // await interaction.deferReply();
+
           await command.execute(interaction);
+
         } catch (error) {
           console.error('Command execution error:', error);
           if (interaction.replied || interaction.deferred) {
@@ -29,11 +32,9 @@ module.exports = {
           }
         }
       }
-
-      // Autocomplete
       else if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
         const command = interaction.client.commands.get(interaction.commandName);
-        if (command && command.autocomplete) {
+        if (command?.autocomplete) {
           try {
             await command.autocomplete(interaction);
           } catch (error) {
@@ -43,7 +44,7 @@ module.exports = {
         }
       }
     } catch (err) {
-      console.error('Interaction error:', err);
+      console.error('Interaction handler error:', err);
     }
   },
 };
