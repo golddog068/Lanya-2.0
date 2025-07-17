@@ -16,8 +16,8 @@ app.listen(PORT, () => {
 });
 
 // === Deploy slash commands on start ===
-const deployCommands = require('./handlers/deployCommands'); // make sure path is correct
-deployCommands(); // this runs when bot starts
+const deployCommands = require('./handlers/deployCommands'); // make sure this path is correct
+deployCommands(); // deploy commands once on startup
 
 // === Initialize Discord client ===
 const client = new Client({
@@ -26,60 +26,43 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
-    // Add this if you use reaction events:
-    // GatewayIntentBits.GuildMessageReactions,
   ],
 });
 
-// === Custom global styles (for console logs) ===
-global.styles = {
-  successColor: chalk.bold.green,
-  warningColor: chalk.bold.yellow,
-  infoColor: chalk.bold.blue,
-  commandColor: chalk.bold.cyan,
-  userColor: chalk.bold.magenta,
-  errorColor: chalk.red,
-  highlightColor: chalk.bold.hex('#FFA500'),
-  accentColor: chalk.bold.hex('#00FF7F'),
-  secondaryColor: chalk.hex('#ADD8E6'),
-  primaryColor: chalk.bold.hex('#FF1493'),
-  dividerColor: chalk.hex('#FFD700'),
-};
-
-// === Load command & event handlers ===
+// === Load handlers ===
 const handlerFiles = fs
   .readdirSync(path.join(__dirname, 'handlers'))
-  .filter((file) => file.endsWith('.js'));
+  .filter(file => file.endsWith('.js'));
 
 let counter = 0;
 for (const file of handlerFiles) {
-  counter += 1;
+  counter++;
   const handler = require(`./handlers/${file}`);
   if (typeof handler === 'function') {
     handler(client);
   }
 }
-console.log(global.styles.successColor(`✅ Loaded ${counter} handlers`));
+console.log(chalk.bold.green(`✅ Loaded ${counter} handlers`));
 
 // === Client event listeners for debugging ===
 client.once('ready', () => {
-  console.log(global.styles.successColor(`✅ Logged in as ${client.user.tag}`));
+  console.log(chalk.bold.green(`✅ Logged in as ${client.user.tag}`));
 });
 
 client.on('error', (error) => {
-  console.error(global.styles.errorColor('Client error:'), error);
+  console.error(chalk.red('Client error:'), error);
 });
 
 client.on('warn', (info) => {
-  console.warn(global.styles.warningColor('Client warning:'), info);
+  console.warn(chalk.yellow('Client warning:'), info);
 });
 
 process.on('unhandledRejection', (error) => {
-  console.error(global.styles.errorColor('Unhandled promise rejection:'), error);
+  console.error(chalk.red('Unhandled promise rejection:'), error);
 });
 
-// === Debug token presence ===
+// Debug token presence
 console.log(process.env.DISCORD_TOKEN ? 'Token loaded ✅' : 'Token missing ❌');
 
-// === Bot login ===
+// Log the bot in
 client.login(process.env.DISCORD_TOKEN);
