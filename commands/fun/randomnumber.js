@@ -18,8 +18,19 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    // Defer the reply to avoid timeout
+    await interaction.deferReply();
+
     const min = interaction.options.getInteger('min');
     const max = interaction.options.getInteger('max');
+
+    // Validate min and max (optional but recommended)
+    if (min > max) {
+      return interaction.editReply({
+        content: 'The minimum value cannot be greater than the maximum value.',
+        ephemeral: true,
+      });
+    }
 
     const randomNumber = Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -43,6 +54,7 @@ module.exports = {
       )
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    // Send the final reply
+    await interaction.editReply({ embeds: [embed] });
   },
 };
