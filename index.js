@@ -5,6 +5,13 @@ const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
 
+// === Global styles setup ===
+global.styles = {
+  successColor: (msg) => console.log(chalk.green.bold(msg)),
+  errorColor: (msg) => console.log(chalk.red.bold(msg)),
+  warnColor: (msg) => console.log(chalk.yellow.bold(msg)),
+};
+
 // === Express server to keep Render alive ===
 const app = express();
 app.get('/', (req, res) => {
@@ -42,23 +49,26 @@ for (const file of handlerFiles) {
     handler(client);
   }
 }
-console.log(chalk.bold.green(`✅ Loaded ${counter} handlers`));
+global.styles.successColor(`✅ Loaded ${counter} handlers`);
 
 // === Client event listeners for debugging ===
 client.once('ready', () => {
-  console.log(chalk.bold.green(`✅ Logged in as ${client.user.tag}`));
+  global.styles.successColor(`✅ Logged in as ${client.user.tag}`);
 });
 
 client.on('error', (error) => {
-  console.error(chalk.red('Client error:'), error);
+  global.styles.errorColor('Client error:');
+  console.error(error);
 });
 
 client.on('warn', (info) => {
-  console.warn(chalk.yellow('Client warning:'), info);
+  global.styles.warnColor('Client warning:');
+  console.warn(info);
 });
 
 process.on('unhandledRejection', (error) => {
-  console.error(chalk.red('Unhandled promise rejection:'), error);
+  global.styles.errorColor('Unhandled promise rejection:');
+  console.error(error);
 });
 
 // Debug token presence
