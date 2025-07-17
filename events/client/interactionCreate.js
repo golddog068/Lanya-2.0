@@ -7,6 +7,8 @@ module.exports = {
     try {
       // === Slash Command ===
       if (interaction.type === InteractionType.ApplicationCommand) {
+        console.log(`➡️ Slash command triggered: ${interaction.commandName}`);
+
         const command = interaction.client.commands.get(interaction.commandName);
 
         if (!command) {
@@ -15,24 +17,29 @@ module.exports = {
         }
 
         try {
-          // Defer reply to avoid 3s timeout if the command does async work
+          // Defer reply to avoid 3s timeout
           if (!interaction.deferred && !interaction.replied) {
-            await interaction.deferReply({ ephemeral: false }); // set to true if you want it private
+            await interaction.deferReply({ ephemeral: false }); // change to true if private
           }
 
-          // Execute the slash command
-          await command.execute(interaction);
+          // Make sure execute function exists
+          if (typeof command.execute === 'function') {
+            await command.execute(interaction);
+          } else {
+            console.warn(`⚠️ Command "${interaction.commandName}" has no execute function.`);
+            await interaction.editReply('This command is currently broken.');
+          }
         } catch (error) {
-          console.error(`❌ Error executing command ${interaction.commandName}:`, error);
+          console.error(`❌ Error executing command "${interaction.commandName}":`, error);
 
           if (interaction.replied || interaction.deferred) {
             await interaction.followUp({
-              content: 'There was an error while executing this command.',
+              content: '❌ There was an error while executing this command.',
               ephemeral: true,
             });
           } else {
             await interaction.reply({
-              content: 'There was an error while executing this command.',
+              content: '❌ There was an error while executing this command.',
               ephemeral: true,
             });
           }
@@ -57,9 +64,9 @@ module.exports = {
         }
       }
 
-      // === Other interactions (like buttons, modals) ===
+      // === Other interaction types (e.g. buttons, modals) ===
       else {
-        // You can handle other types here if needed (e.g. interaction.isButton(), etc.)
+        // Add handling here if needed
       }
 
     } catch (err) {
