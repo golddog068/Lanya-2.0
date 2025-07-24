@@ -10,6 +10,7 @@ global.styles = {
   successColor: (msg) => console.log(chalk.green.bold(msg)),
   errorColor: (msg) => console.log(chalk.red.bold(msg)),
   warnColor: (msg) => console.log(chalk.yellow.bold(msg)),
+  infoColor: (msg) => console.log(chalk.cyan.bold(msg)), // ✅ Added this to fix MongoDB error
 };
 
 // === Express server to keep Render alive ===
@@ -23,7 +24,7 @@ app.listen(PORT, () => {
 });
 
 // === Deploy slash commands on start ===
-const deployCommands = require('./handlers/deployCommands'); // make sure this path is correct
+const deployCommands = require('./handlers/deployCommands');
 deployCommands(); // deploy commands once on startup
 
 // === Initialize Discord client ===
