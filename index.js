@@ -10,7 +10,7 @@ global.styles = {
   successColor: (msg) => console.log(chalk.green.bold(msg)),
   errorColor: (msg) => console.log(chalk.red.bold(msg)),
   warnColor: (msg) => console.log(chalk.yellow.bold(msg)),
-  infoColor: (msg) => console.log(chalk.cyan.bold(msg)), // ✅ Added this to fix MongoDB error
+  infoColor: (msg) => console.log(chalk.cyan.bold(msg)),
 };
 
 // === Express server to keep Render alive ===
@@ -37,17 +37,21 @@ const client = new Client({
   ],
 });
 
-// === Load handlers ===
+// === Load handlers (functions and event objects) ===
 const handlerFiles = fs
   .readdirSync(path.join(__dirname, 'handlers'))
   .filter(file => file.endsWith('.js'));
 
 let counter = 0;
 for (const file of handlerFiles) {
-  counter++;
   const handler = require(`./handlers/${file}`);
+  
   if (typeof handler === 'function') {
-    handler(client);
+    handler(client); // for handlers like commandHandler.js
+    counter++;
+  } else if (handler.name && typeof handler.execute === 'function') {
+    client.on(handler.name, (...args) => handler.execute(...args)); // for event handlers like interactionCreate.js
+    counter++;
   }
 }
 global.styles.successColor(`✅ Loaded ${counter} handlers`);
